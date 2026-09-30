@@ -1,53 +1,164 @@
 # Detection Logic
 
-## Purpose
+## Objective
 
-This document describes the detection logic used by the Python Security Log Analyzer.
+The purpose of the detection logic is to identify repeated failed SSH authentication attempts that may indicate password-guessing or brute-force activity.
 
-The analyzer will examine authentication events and identify patterns that may indicate suspicious login activity.
+The detector is designed as a simple rule-based security detection mechanism.
 
-## Primary Detection
+---
 
-The initial detection scenario is repeated failed authentication attempts.
+## Authentication Events
 
-A high number of failed authentication attempts from the same source may indicate:
+The analyzer currently recognizes two SSH authentication event types:
 
-* Password guessing
-* Brute-force activity
-* Automated authentication attempts
-* Unauthorized access attempts
+### Failed Authentication
+
+Example:
+
+```text
+Failed password for invalid user admin from 192.168.100.50
+```
+
+The analyzer extracts:
+
+* Timestamp
+* Username
+* Source IP
+* Event type
+
+The event is classified as:
+
+```text
+FAILED_LOGIN
+```
+
+### Successful Authentication
+
+Example:
+
+```text
+Accepted password for testuser from 192.168.100.60
+```
+
+The analyzer extracts the same basic fields and classifies the event as:
+
+```text
+SUCCESSFUL_LOGIN
+```
+
+---
+
+## Detection Rule
+
+The current threshold is:
+
+```python
+FAILURE_THRESHOLD = 5
+```
+
+The analyzer counts failed authentication attempts originating from each source IP.
+
+If the number of failures from one source reaches or exceeds five:
+
+```text
+Failed attempts >= 5
+```
+
+the analyzer generates:
+
+```text
+[ALERT] Potential brute-force activity
+```
+
+---
 
 ## Detection Flow
 
 ```text
 Authentication Log
         ↓
-Parse Log Entries
+Read Log Entry
         ↓
-Identify Failed Logins
+Identify Authentication Event
         ↓
-Extract Source IP / User
+Extract Username + Source IP
         ↓
-Count Failed Attempts
+Store Failed/Successful Event
         ↓
-Compare Against Threshold
+Count Failed Attempts by IP
         ↓
-Generate Security Alert
+Compare Count With Threshold
+        ↓
+Generate Alert
 ```
 
-## Detection Threshold
+---
 
-A configurable threshold will be used to determine when repeated failed authentication attempts should be considered suspicious.
+## Why Source IP Is Used
 
-The exact threshold will be defined and tested during the implementation phase.
+Grouping failures by source IP allows repeated authentication attempts from the same origin to be identified.
+
+For example:
+
+```text
+192.168.100.50 → 6 failures
+192.168.100.60 → 1 failure
+192.168.100.70 → 1 failure
+```
+
+Only the first source exceeds the configured threshold.
+
+---
+
+## Detection Interpretation
+
+A triggered alert does **not** automatically prove that an attack occurred.
+
+Repeated authentication failures can have legitimate explanations, such as:
+
+* Incorrect password
+* Misconfigured automation
+* Forgotten credentials
+* Administrative activity
+* Password guessing
+
+Therefore, the alert should be treated as:
+
+```text
+Potential suspicious activity
+```
+
+and investigated using additional evidence.
+
+---
+
+## Current Limitations
+
+The current implementation does not yet use a time-window calculation.
+
+Therefore, the detector primarily identifies repeated failures by source IP rather than determining whether the attempts occurred within a specific rolling time period.
+
+It also does not currently perform:
+
+* Threat-intelligence lookups
+* Geographic analysis
+* Account-risk scoring
+* SIEM correlation
+* Automated response
+
+---
 
 ## Future Detection Enhancements
 
-Potential future improvements include:
+Possible improvements include:
 
-* Time-window based detection
-* Multiple targeted usernames
-* Successful login following repeated failures
-* IP-based risk scoring
-* Geographic anomaly detection
-* Log severity classification
+1. Rolling time-window detection
+2. Detection of multiple targeted accounts
+3. Successful login after repeated failures
+4. IP reputation enrichment
+5. Detection severity levels
+6. SIEM integration
+7. JSON/CSV alert output
+8. Automated investigation reports
+
