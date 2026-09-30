@@ -78,6 +78,15 @@ python-security-log-analyzer/
 * Basic security detection logic
 * Git & GitHub
 
+## Project Evidence
+
+### Kali Project Setup
+
+The project was developed and tested in a Kali Linux environment.
+
+![Kali project setup](documentation/01-kali-project-setup.png)
+
+
 ## Current Status
 
 🚧 Project under development.
