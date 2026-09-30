@@ -2,115 +2,209 @@
 
 ## Purpose
 
-These test cases define how the Python Security Log Analyzer will be validated.
+These test cases verify that the Python Security Log Analyzer correctly parses SSH authentication events and identifies repeated failed login attempts.
 
-The goal is to verify that the analyzer can distinguish between normal authentication activity, isolated failures, and repeated suspicious authentication attempts.
+The tests use controlled authentication data from `sample_auth.log`.
 
 ---
 
-## Test Case 1 — Successful Login
+## Test Case 1 — Successful Login Detection
 
-**Scenario:** A user successfully authenticates through SSH.
-
-**Expected Result:** No security alert should be generated.
-
-**Log Example:**
+**Input:**
 
 ```text
 Accepted password for swati from 192.168.100.10
 ```
 
-**Expected Classification:**
+**Expected result:**
+
+The event should be identified as:
 
 ```text
-NORMAL
+SUCCESSFUL_LOGIN
 ```
+
+The analyzer should extract:
+
+* Username: `swati`
+* Source IP: `192.168.100.10`
+
+**Expected outcome:** PASS
 
 ---
 
-## Test Case 2 — Single Failed Login
+## Test Case 2 — Failed Login Detection
 
-**Scenario:** A single failed authentication attempt occurs.
-
-**Expected Result:** The event should be recorded, but should not automatically be classified as a brute-force attack.
-
-**Log Example:**
+**Input:**
 
 ```text
-Failed password for root from 192.168.100.70
+Failed password for invalid user admin from 192.168.100.50
 ```
 
-**Expected Classification:**
+**Expected result:**
+
+The event should be identified as:
 
 ```text
-FAILED AUTHENTICATION
+FAILED_LOGIN
 ```
+
+The analyzer should extract:
+
+* Username: `admin`
+* Source IP: `192.168.100.50`
+
+**Expected outcome:** PASS
 
 ---
 
-## Test Case 3 — Repeated Failed Logins
+## Test Case 3 — Failed Login Counting
 
-**Scenario:** Multiple failed authentication attempts originate from the same source IP within a short period.
+The sample log contains eight failed authentication attempts.
 
-**Expected Result:** The analyzer should identify the repeated activity and generate a potential brute-force alert.
-
-**Source IP:**
+**Expected result:**
 
 ```text
-192.168.100.50
+Failed authentication attempts: 8
 ```
 
-**Expected Classification:**
-
-```text
-POTENTIAL BRUTE-FORCE ACTIVITY
-```
+**Expected outcome:** PASS
 
 ---
 
-## Test Case 4 — Failed Login Followed by Successful Login
+## Test Case 4 — Successful Login Counting
 
-**Scenario:** Multiple authentication events occur, including a failed attempt followed by a successful login.
+The sample log contains two successful authentication events.
 
-**Expected Result:** The analyzer should preserve both events so the sequence can be investigated rather than treating the successful login as automatically benign.
-
-**Source IP:**
+**Expected result:**
 
 ```text
-192.168.100.60
+Successful logins: 2
 ```
 
-**Expected Classification:**
-
-```text
-REQUIRES INVESTIGATION
-```
+**Expected outcome:** PASS
 
 ---
 
-## Test Case 5 — Different Source IPs
+## Test Case 5 — Source IP Aggregation
 
-**Scenario:** Failed authentication attempts originate from different IP addresses.
+Failed authentication attempts should be grouped by source IP.
 
-**Expected Result:** Attempts from different sources should not be incorrectly combined into one brute-force event.
-
-**Expected Classification:**
+**Expected result:**
 
 ```text
-SEPARATE EVENTS
+192.168.100.50: 6 failed attempt(s)
+192.168.100.60: 1 failed attempt(s)
+192.168.100.70: 1 failed attempt(s)
 ```
+
+**Expected outcome:** PASS
 
 ---
 
-## Validation Criteria
+## Test Case 6 — Brute-Force Detection
 
-The analyzer will be considered functional when it can:
+The configured detection threshold is:
 
-* Parse authentication events correctly.
-* Identify failed authentication attempts.
-* Extract source IP addresses.
-* Count repeated failures.
-* Apply the configured detection threshold.
-* Generate an alert when the threshold is exceeded.
-* Avoid treating every individual failed login as a brute-force attack.
-* Provide output that can be used for further investigation.
+```text
+5 failed attempts
+```
+
+Source IP `192.168.100.50` generates six failed authentication attempts.
+
+**Expected result:**
+
+```text
+[ALERT] Potential brute-force activity from 192.168.100.50
+```
+
+**Expected outcome:** PASS
+
+---
+
+## Test Case 7 — Isolated Failure
+
+Source IP `192.168.100.70` generates one failed authentication attempt.
+
+**Expected result:**
+
+No brute-force alert should be generated for this source.
+
+**Expected outcome:** PASS
+
+---
+
+## Test Case 8 — Failed Login Followed by Successful Login
+
+Source IP `192.168.100.60` produces:
+
+```text
+09:19:02 → Failed login
+09:19:41 → Successful login
+```
+
+**Expected result:**
+
+Both events should be detected and recorded.
+
+The sequence should be identified as requiring further investigation rather than automatically classified as malicious.
+
+**Expected outcome:** PASS
+
+---
+
+## Test Case 9 — Missing Log File
+
+Run the analyzer with a nonexistent file:
+
+```bash
+python3 analyzer.py nonexistent.log
+```
+
+**Expected result:**
+
+```text
+[ERROR] Log file not found: nonexistent.log
+```
+
+The program should exit without crashing.
+
+**Expected outcome:** PASS
+
+---
+
+## Test Case 10 — Invalid Command Usage
+
+Run the analyzer without providing a log file:
+
+```bash
+python3 analyzer.py
+```
+
+**Expected result:**
+
+```text
+Usage: python3 analyzer.py <log_file>
+```
+
+**Expected outcome:** PASS
+
+---
+
+## Test Summary
+
+| Test Case | Function Tested               | Expected Result |
+| --------- | ----------------------------- | --------------- |
+| 1         | Successful login parsing      | PASS            |
+| 2         | Failed login parsing          | PASS            |
+| 3         | Failed login counting         | PASS            |
+| 4         | Successful login counting     | PASS            |
+| 5         | Source IP aggregation         | PASS            |
+| 6         | Brute-force detection         | PASS            |
+| 7         | Isolated failure handling     | PASS            |
+| 8         | Failure → success correlation | PASS            |
+| 9         | Missing file handling         | PASS            |
+| 10        | Invalid command handling      | PASS            |
+
+> **Note:** These are expected test outcomes based on the current implementation and controlled input. They should be marked as verified only after the commands are actually executed.
+
