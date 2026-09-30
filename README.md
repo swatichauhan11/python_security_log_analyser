@@ -84,7 +84,11 @@ python-security-log-analyzer/
 
 The project was developed and tested in a Kali Linux environment.
 
-![Kali project setup](documentation/01-kali-project-setup.png)
+<img width="457" height="303" alt="image" src="https://github.com/user-attachments/assets/478448e4-382e-4dc5-97de-c6f93963c7f4" />
+
+### Analyser.py Code 
+
+<img width="477" height="342" alt="image" src="https://github.com/user-attachments/assets/656438da-8e06-432e-972a-ec216539cca8" />
 
 
 ## Current Status
